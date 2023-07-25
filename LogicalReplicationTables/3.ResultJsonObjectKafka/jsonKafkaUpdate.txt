@@ -1,0 +1,58 @@
+{
+  "before": {
+    "Value": {
+      "claim_id": {
+        "int": 1
+      },
+      "claim_date": {
+        "int": 19358
+      },
+      "member_id": {
+        "int": 1
+      },
+      "claim_status": {
+        "string": "P"
+      }
+    }
+  },
+  "after": {
+    "Value": {
+      "claim_id": {
+        "int": 1
+      },
+      "claim_date": {
+        "int": 19358
+      },
+      "member_id": {
+        "int": 100
+      },
+      "claim_status": {
+        "string": "P"
+      }
+    }
+  },
+  "source": {
+    "version": "1.4.2.Final",
+    "connector": "postgresql",
+    "name": "postgres",
+    "ts_ms": 1690165641060,
+    "snapshot": {
+      "string": "false"
+    },
+    "db": "exampledb",
+    "schema": "public",
+    "table": "claims",
+    "txId": {
+      "long": 496
+    },
+    "lsn": {
+      "long": 23874640
+    },
+    "xmin": null
+  },
+  "op": "u",
+  "ts_ms": {
+    "long": 1690165641351
+  },
+  "transaction": null
+}
