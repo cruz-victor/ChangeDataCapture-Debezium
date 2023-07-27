@@ -1,0 +1,125 @@
+0. INSTALAR DOCKER DESKTOP EN WINDOWS
+	Docker Desktop
+		Es una apicacion que facilita la gestion de contenedores docker en windows y macos
+
+1. INSTALAR LOS CONTENEDORES DOCKER
+	Ejecutar la configuracion de docker-compose.yaml
+	>docker-compose up
+
+	Docker compose
+		Es una herramienta que facilita la definiciony despliegue de aplicaciones multi contenedor.
+		Permite especificar la configuracion de los contenedores en un archivo YAML
+		Existen alternativas a docker compose como: kubernetes, docker swarm
+
+	Postgres	
+		Es un sistema de gestion de base de datos relacional de codigo abierto y gratuito
+	
+	Debezium
+		Es una herramienta que permite capturar los cambios en una base de datos y enviarlos a sistemas de mensajeria como kafka en tiempo real
+		Es de codigo abierto
+		Es un CDC (Change Data Capture)
+
+	Kafka
+		Es una plataforma de streaming de codigo abierto desarrollado por apache
+		Util para la gestion de datos en tiempo real provenientes de distintas fuentes y enviarlos a multiples destinos
+		Se utiliza para procesar y almacenar flujos masivos de datos en tiempo real
+
+	Zookeeper
+		Zookeeper es un servicio de coordinacion y gestion distribuida
+		Es un servidor de codigo abierto que permite una coordinacion distribuida altamente confiable
+		Es un coordinador centralizado que permite a diferentes partes de una aplicacion comunicarse y mantenerse organizada para trabajar juntas	
+				
+
+2. PROBAR LOS CONTENEDORES INICIADOS
+	Postgres 	[5432:5432]
+	Debezium 	[8083:8083]
+	Kafka 		[9092:9092]
+	Zookeeper 	[2181]
+
+	Ver que los contenedores este corriendo
+	>docker ps
+
+	Ver la version del SO del contenedor
+	>cat /etc/os-release
+
+	Probar el servicio desde consola/navegador
+	Postgres 	[5432:5432]
+		>psql -U usuario_bd -d postgres -h localhost -p 5432
+
+	Debezium 	[8083:8083]
+		http://localhost:8083
+
+	Kafka 		[9092:9092] (/usr/bin)
+		>kafka-console-producer.sh --broker-list localhost:9092 --topic mi_tema
+		>kafka-console-consumer.sh --bootstrap-server localhost:9092 --topic mi_tema --from-beginning
+
+
+	Zookeeper 	[2181] (/usr/bin)
+		>zookeeper-shell.sh localhost:2181
+
+	
+3. CONFIGURAR POSTGRES
+	Crear la base de datos y tablas en postgres
+		CREATE TABLE IF NOT EXISTS Customer(id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, country TEXT NOT NULL);
+		CREATE TABLE IF NOT EXISTS Orders(id TEXT NOT NULL PRIMARY KEY,	customerId TEXT NOT NULL, total NUMERIC(10,2) NOT NULL);
+
+	#Habilitar la replicacion logical de las tablas 
+	//En este ejemplo no se aplico la replicacion logica por tablas.
+	//La replicacion logica se aplico al momenot de crear el contenendor, en el docker-file
+		#alter table public.Customer replica identity full;
+		#alter table public.Orders replica identity full;
+
+
+	Mostrar las estadisticas de la replicacion
+		select * from pg_catalog.pg_stat_replication 
+
+
+4. CONFIGURAR DEBEZIUM
+	Obtener la IP/nombre del contenedor postgres
+	>docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' nombre_contenedor
+	>hostname
+
+	Agregar connector
+	Agrear el conector de cdc-postres en debezium
+		>curl -i -X POST -H "Accept:application/json" - H "Content-Type:application/json" 127.0.0.1:8083/connectors/ --data "@debezium.json"
+
+	Tambien se puede agregar el conector mediante postman
+		 POST: http://127.0.0.1:8083/connectors/
+			Sincronizacion de todas las tablas
+			Body: debezium.json 
+					{
+					"name": "cqrs-test-connector",
+					"config": {
+						"connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+						"database.hostname": "postgres",
+						"database.port": "5432",
+						"database.user": "postgres",
+						"database.password": "postgres",
+						"database.dbname": "postgresdb",
+						"topic.prefix": "dbserver1",
+						"plugin.name": "pgoutput"
+					}
+					}
+
+			Sincronizacion de las tablas especificas
+				    #"database.server.name": "postgres", //cambio a topic.prefix
+				    #"table.include.list": "public.claims,public.drugs,public.member" //usar en caso de habilitar CDC por tablas
+
+	Eliminar conector
+	curl -X DELETE http://localhost:8083/connectors/cqrs-test-connector
+
+
+5. EJECUTAR - COSUMIDORES
+	Listar las redes disponibles Docker
+		>docker network ls
+
+	Ejecutar los consumidores
+		>docker exec -it kafka /bin/bash
+		>kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic dbserver1.public.customer --from-beginning
+		>kafka-console-consumer.sh --bootstrap-server kafka:9092 --topic dbserver1.public.orders --from-beginning
+
+6. PRUEBAS CAPTURAS CDC EN TABLAS
+	insert into customer(id, name, country) values('1','vic','BO');
+	insert into orders (id,customerid,total) values('11','1',100);
+
+	
